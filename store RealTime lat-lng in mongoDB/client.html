@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+    <head><title>Online Tracking BY Node Socket</title></head>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      var socket = io();
+        function setLatLng(){
+            socket.emit('setLatLng',{lat: document.getElementById('lat').value, lng: document.getElementById('lng').value, deviceID: ****});
+            console.log('B');
+        };
+    </script>
+    <body>
+        <div id="error-container"></div>
+        <input id="lat" type="text" name="lat" value="" placeholder="Enter latitute!">
+        <input id="lng" type="text" name="lng" value="" placeholder="Enter longitute">
+        <button type="button" name="button" onclick="setLatLng()">Send</button>
+    </body>
+</html>

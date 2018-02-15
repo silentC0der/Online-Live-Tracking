@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head runat="server">
+    <title>Online Tracking BY Socket.io</title>
+<style type="text/css">
+html { height: 100% }
+body { height: 100%; margin: 0; padding: 0 }
+#map_canvas { height: 100% }
+</style>
+<script type="text/javascript"
+src="https://maps.googleapis.com/maps/api/js?key=API_KEY&sensor=true">
+</script>
+<script src="/socket.io/socket.io.js"></script>
+<script type="text/javascript">
+    var marker = null;
+    var map = null;
+    var socket = io();
+    function initialize(){
+        var id = getRandomId();
+        socket.emit('deviceID',{id});
+        var myLatlng = new google.maps.LatLng(25.317645,82.973914);
+        var myOptions = {
+            zoom:7,
+            center: myLatlng,
+            mapTypeId: google.maps.MapTypeId.ROADMAP
+        }
+        map = new google.maps.Map(document.getElementById("gmap"), myOptions);
+        marker = new google.maps.Marker({
+            position: myLatlng,
+            map: map
+        });
+    }
+    
+    socket.on('getLatLng',function(data){
+        var myLatlng = new google.maps.LatLng(data.data2.lat,data.data2.lng);
+        marker.setPosition(myLatlng);
+    }); 
+    
+    socket.on('trackAllLocation',function(data){
+        var markers = {};
+        markers = data.locArray.location;
+        var infoWindow = new google.maps.InfoWindow();
+        var lat_lng = new Array();
+        var latlngbounds = new google.maps.LatLngBounds();
+        for (i = 0; i < markers.length; i++) {
+            var data = markers[i]
+            var myLatlng = new google.maps.LatLng(data.lat, data.lng);
+            lat_lng.push(myLatlng);
+            var marker = new google.maps.Marker({
+                position: myLatlng,
+                map: map,
+                title: data.title
+            });
+            latlngbounds.extend(marker.position);
+            (function (marker, data) {
+                google.maps.event.addListener(marker, "click", function (e) {
+                    infoWindow.setContent(data.description);
+                    infoWindow.open(map, marker);
+                });
+            })(marker, data);
+        }
+        
+        var path = new google.maps.MVCArray();
+        var service = new google.maps.DirectionsService();
+        var poly = new google.maps.Polyline({ map: map, strokeColor: '#4986E7' });
+        for (var i = 0; i < lat_lng.length; i++) {
+            if ((i + 1) < lat_lng.length) {
+                var src = lat_lng[i];
+                var des = lat_lng[i + 1];
+                path.push(src);
+                poly.setPath(path);
+                service.route({
+                    origin: src,
+                    destination: des,
+                    travelMode: google.maps.DirectionsTravelMode.DRIVING
+                }, function (result, status) {
+                    if (status == google.maps.DirectionsStatus.OK) {
+                        for (var i = 0, len = result.routes[0].overview_path.length; i < len; i++) {
+                            path.push(result.routes[0].overview_path[i]);
+                        }
+                    }
+                });
+            }
+        }
+        map.setCenter(latlngbounds.getCenter());
+        map.fitBounds(latlngbounds);
+    });
+    
+    function getRandomInteger(min ,max){
+        return Math.floor(Math.random() * (max - min)) + min;
+    }
+
+    function getRandomId(){
+        var dTime = new Date().getTime();
+        var id;
+        var rNum = this.getRandomInteger(1, 9);
+        id = '' + rNum + '' + dTime;
+        return id;
+    };
+            
+    window.onload = function () { initialize() };
+</script>
+     <style>
+ div#gmap {
+        width: 80%;
+        height: 500px;
+        border:double;
+ }
+    </style>
+</head>
+
+<body>
+    <form id="form1" runat="server">
+<center>
+<div id="gmap"></div>
+
+lat:<span id='lat'></span>
+lng:<span id='lng'></span>
+
+</center>
+
+    </form>
+</body>
+
+</html>
