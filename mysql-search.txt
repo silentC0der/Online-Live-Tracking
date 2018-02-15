@@ -1,0 +1,281 @@
+var autoSearch = async(req, res, next) => {
+    let str = (req.body.str ? req.body.str : '');
+    let st = (req.body.st ? req.body.st : 0);
+    let lt = (req.body.lt ? req.body.lt : 4);
+    let cse = (req.body.case ? req.body.case : '');
+    let uid = (validationCheckObj.checkNull(req.headers['x-key']) ? req.headers['x-key'] : -1);
+    let user = [];
+    let bucket = [];
+    let post = [];
+    let story = [];
+    let error = {};
+    let retArr = {};
+    let sql = '';
+    switch (cse) {
+        case 1:
+            sql = ' SELECT \n\
+                              bucket_id AS id, \n\
+                              bucket_title AS name, \n\
+                              0 AS uname, \n\
+                              1 AS type, \n\
+                              (select count(distinct(bucket_id)) from tbl_user_bucket_master where ( MATCH(bucket_title) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) OR  bucket_title like "%'+str+'%") and active_flag =1) as count,\n\
+                              bucket_image AS image, \n\
+                              created_by as ouid,\n\
+                              (select name from tbl_user_master where user_id = ouid limit 1) as oname,\n\
+                              (select user_name from tbl_user_master where user_id = ouid limit 1) as ouname,\n\
+                              (select profile_image from tbl_user_master where user_id = ouid limit 1) as oimage,\n\
+                              (select count(*) from tbl_post_master where bucket_id = id and active_flag =1) as postCount ,\n\
+                              (select count(*) from tbl_user_bucket_master where user_id = ' + uid + ' and bucket_id = id) as isAdded ,\n\
+                              (select count(*) from tbl_user_bucket_master where user_id = ' + uid + ' and bucket_id = id and achieve_flag =1) as isAchieve ,\n\
+                              MATCH(bucket_title) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) AS score \n\
+                        FROM \n\
+                            tbl_user_bucket_master \n\
+                        WHERE \n\
+                         ( MATCH(bucket_title) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) OR  bucket_title like "%'+str+'%") \n\
+                        AND \n\
+                            active_flag=1 \n\
+                        group by bucket_id \n\
+                        ORDER BY \n\
+                            score DESC \n\
+                        LIMIT ' + st + ',' + lt;
+            break;
+
+        case 2:
+            sql = ' SELECT \n\
+                                user_id AS id, \n\
+                                name AS name, \n\
+                                user_name AS uname, \n\
+                                2 AS type, \n\
+                                (select count(distinct(user_id)) from tbl_user_master where (MATCH(name) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) OR  name like "%'+str+'%") and active_flag =1 and user_id <> ' + uid + ' ) as count,\n\
+                                profile_image AS image, \n\
+                                "" as ouid, \n\
+                                "" as oname,\n\
+                                "" as ouname,\n\
+                                "" as oimage,\n\
+                                "" as postCount ,\n\
+                                (select count(1) from tbl_follow_master where active_flag =1 and user_id =' + uid + ' and follower_id = id) as isAdded,\n\
+                                "" as isAchieve ,\n\
+                                MATCH(name) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) AS score \n\
+                        FROM \n\
+                            tbl_user_master \n\
+                        WHERE \n\
+                           (MATCH(name) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) OR  name like "%'+str+'%") \n\
+                        AND \n\
+                            active_flag=1  AND user_id <> ' + uid + ' \n\
+                        ORDER BY \n\
+                             name \n\
+                        LIMIT ' + st + ',' + lt;
+            break;
+
+        case 3:
+            sql = ' SELECT \n\
+                                post_id AS id, \n\
+                                post_text AS name, \n\
+                                bucket_id AS bid, \n\
+                                "" AS uname, \n\
+                                3 AS type, \n\
+                                DATE_FORMAT(created_on, "%D %b %Y") as cdate, \n\
+                                DATE_FORMAT(created_on, "%l:%i %p") as ctime, \n\
+                                (select bucket_title from tbl_user_bucket_master where bucket_id = bid and active_flag = 1 order by created_on limit 1) as bname,\n\
+                                (select bucket_title_seo from tbl_user_bucket_master where bucket_id = bid and active_flag = 1 order by created_on limit 1) as bname_seo,\n\
+                                (select bucket_image from tbl_user_bucket_master where bucket_id = bid and active_flag = 1 order by created_on limit 1) as bimage,\n\
+                                (select created_by from tbl_user_bucket_master where bucket_id = bid and active_flag = 1 order by created_on asc limit 1) as cuid, \n\
+                                (select count(distinct(post_id)) from tbl_post_master where (MATCH(post_text) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) OR post_text like "%'+str+'%") and active_flag =1 ) as count,\n\
+                                post_image AS image, \n\
+                                user_id as ouid, \n\
+                                (select name from tbl_user_master where user_id = ouid limit 1) as oname,\n\
+                                (select user_name from tbl_user_master where user_id = ouid limit 1) as ouname,\n\
+                                (select profile_image from tbl_user_master where user_id = ouid limit 1) as oimage,\n\
+                                (select name from tbl_user_master where user_id = cuid limit 1) as cname,\n\
+                                (select user_name from tbl_user_master where user_id = cuid limit 1) as cuname,\n\
+                                (select profile_image from tbl_user_master where user_id = cuid limit 1) as cimage,\n\
+                                "" as postCount ,\n\
+                                "" as isAdded,\n\
+                                "" as isAchieve ,\n\
+                                MATCH(post_text) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) AS score \n\
+                        FROM \n\
+                            tbl_post_master \n\
+                        WHERE \n\
+                            (MATCH(post_text) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) OR  post_text like "%'+str+'%") \n\
+                        AND \n\
+                            active_flag=1  \n\
+                        ORDER BY \n\
+                            score DESC \n\
+                        LIMIT ' + st + ',' + lt;
+            break;
+        case 4:
+            sql = ' SELECT \n\
+                                story_id AS id, \n\
+                                text AS name, \n\
+                                "" AS uname, \n\
+                                4 AS type, \n\
+                                (select count(distinct(story_id)) from tbl_story_master where (MATCH(text) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) OR  text like "%'+str+'%") and active_flag =1 ) as count,\n\
+                                image AS image, \n\
+                                user_id as ouid, \n\
+                                (select name from tbl_user_master where user_id = ouid limit 1) as oname,\n\
+                                (select user_name from tbl_user_master where user_id = ouid limit 1) as ouname,\n\
+                                (select profile_image from tbl_user_master where user_id = ouid limit 1) as oimage,\n\
+                                "" as postCount ,\n\
+                                "" as isAdded,\n\
+                                "" as isAchieve ,\n\
+                                MATCH(text) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) AS score \n\
+                        FROM \n\
+                            tbl_story_master \n\
+                        WHERE \n\
+                            (MATCH(text) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) OR  text like "%'+str+'%") \n\
+                        AND \n\
+                            active_flag=1 \n\
+                        ORDER BY \n\
+                            score DESC \n\
+                        LIMIT ' + st + ',' + lt;
+            break;
+        default:
+            sql = 'select * from ( \n\
+                                    (SELECT \n\
+                                            bucket_id AS id, \n\
+                                            bucket_title AS name, \n\
+                                            0 AS uname, \n\
+                                            1 AS type, \n\
+                                            (select count(distinct(bucket_id)) from tbl_user_bucket_master where MATCH(bucket_title) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) and active_flag =1) as count,\n\
+                                            bucket_image AS image, \n\
+                                            created_by as ouid,\n\
+                                            (select name from tbl_user_master where user_id = ouid limit 1) as oname,\n\
+                                            (select user_name from tbl_user_master where user_id = ouid limit 1) as ouname,\n\
+                                            (select profile_image from tbl_user_master where user_id = ouid limit 1) as oimage,\n\
+                                            (select count(1) from tbl_post_master HAVING bucket_id = id and active_flag =1) as postCount ,\n\
+                                            (select count(1) from tbl_user_bucket_master HAVING user_id = ' + uid + ' and bucket_id = id) as isAdded ,\n\
+                                            (select count(1) from tbl_user_bucket_master HAVING user_id = ' + uid + ' and bucket_id = id and achieve_flag =1) as isAchieve ,\n\
+                                            MATCH(bucket_title) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) AS score \n\
+                                    FROM \n\
+                                        tbl_user_bucket_master \n\
+                                    WHERE \n\
+                                      (MATCH(bucket_title) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) OR  bucket_title like "%'+str+'%")  \n\
+                                    AND \n\
+                                        active_flag=1 \n\
+                                        group by bucket_id ORDER BY \n\
+                                        score DESC \n\
+                                    LIMIT ' + st + ',' + lt + ' ) \n\
+                        UNION \n\
+                                    (SELECT \n\
+                                        user_id AS id, \n\
+                                        name AS name, \n\
+                                        user_name AS uname, \n\
+                                        2 AS type, \n\
+                                        (select count(distinct(user_id)) from tbl_user_master where MATCH(name) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) and active_flag =1 and user_id <> ' + uid + ') as count,\n\
+                                        profile_image AS image, \n\
+                                        "" as ouid,\n\
+                                        "" as oname,\n\
+                                        0 as ouname,\n\
+                                        0 as oimage,\n\
+                                        (select count(1) from tbl_user_bucket_master where user_id = id and active_flag =1 group by bucket_id limit 1) as postCount,\n\
+                                        (select count(1) from tbl_follow_master where active_flag =1 and user_id =' + uid + ' and follower_id = id) as isAdded,\n\
+                                        "" as isAchieve ,\n\
+                                        MATCH(name) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) AS score \n\
+                                    FROM \n\
+                                        tbl_user_master \n\
+                                    WHERE \n\
+                                    (MATCH(name) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) OR name like "%'+str+'%") \n\
+                                    AND \n\
+                                        active_flag=1 AND user_id <> ' + uid + '\n\
+                                    ORDER BY \n\
+                                         name \n\
+                                    LIMIT ' + st + ',' + lt + ') \n\
+                        UNION \n\
+                                (SELECT \n\
+                                        post_id AS id, \n\
+                                        post_text AS name, \n\
+                                        "" AS uname, \n\
+                                        3 AS type, \n\
+                                        (select count(distinct(post_id)) from tbl_post_master where MATCH(post_text) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) and active_flag =1 ) as count,\n\
+                                        post_image AS image, \n\
+                                        user_id as ouid, \n\
+                                        (select name from tbl_user_master where user_id = ouid limit 1) as oname,\n\
+                                        (select user_name from tbl_user_master where user_id = ouid limit 1) as ouname,\n\
+                                        (select profile_image from tbl_user_master where user_id = ouid limit 1) as oimage,\n\
+                                        0 as postCount ,\n\
+                                        0 as isAdded,\n\
+                                        0 as isAchieve ,\n\
+                                        MATCH(post_text) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) AS score \n\
+                                FROM \n\
+                                    tbl_post_master \n\
+                                WHERE \n\
+                                    (MATCH(post_text) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) OR post_text like "%'+str+'%") \n\
+                                AND \n\
+                                    active_flag=1   \n\
+                                ORDER BY \n\
+                                    score DESC \n\
+                                LIMIT ' + st + ',' + lt + ') \n\
+                        UNION \n\
+                                (SELECT \n\
+                                        story_id AS id, \n\
+                                        text AS name, \n\
+                                        "" AS uname, \n\
+                                        4 AS type, \n\
+                                        (select count(distinct(story_id)) from tbl_story_master where MATCH(text) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) and active_flag =1 ) as count,\n\
+                                        image AS image, \n\
+                                        user_id as ouid, \n\
+                                        (select name from tbl_user_master where user_id = ouid limit 1) as oname,\n\
+                                        (select user_name from tbl_user_master where user_id = ouid limit 1) as ouname,\n\
+                                        (select profile_image from tbl_user_master where user_id = ouid limit 1) as oimage,\n\
+                                        0 as postCount ,\n\
+                                        0 as isAdded,\n\
+                                        0 as isAchieve ,\n\
+                                        MATCH(text) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) AS score \n\
+                                FROM \n\
+                                    tbl_story_master \n\
+                                WHERE \n\
+                                    (MATCH(text) AGAINST(' + mysql.escape(str + '*') + ' IN BOOLEAN MODE) OR text like "%'+str+'%")\n\
+                                AND \n\
+                                    active_flag=1 \n\
+                                ORDER BY \n\
+                                    score DESC \n\
+                                LIMIT ' + st + ',' + lt + ') \n\
+                        ) t \n\
+                            ORDER BY \n\
+                                score DESC ';
+
+    }
+    db.query({ sql: sql, timeout: LONG_QUERY }, function(err, result, fields) {
+        if (err && err.code === 'PROTOCOL_SEQUENCE_TIMEOUT') {
+            logger.error('API from autoSearch');
+            logger.error('too long to execute query');
+            logger.error(sql);
+            logger.error(err);
+        } else if (err) {
+            logger.error(sql);
+            logger.error(err);
+            error.errCode = 1;
+            error.errMsg = 'Error in autoSearch Query';
+            retArr.error = error;
+            res.json(retArr);
+            return 1;
+        } else if (result) {
+            async.eachSeries(result, function(vl, callback) {
+                switch (vl.type) {
+                    case 1:
+                        bucket.push(vl);
+                        break;
+                    case 2:
+                        user.push(vl);
+                        break;
+                    case 3:
+                        post.push(vl);
+                        break;
+                    case 4:
+                        story.push(vl);
+                        break;
+                }
+                callback();
+            }, function(err) {
+                retArr.bucket = bucket;
+                retArr.user = user;
+                retArr.post = post;
+                retArr.story = story;
+                error.errCode = 0;
+                error.errMsg = 'result fetched successfully';
+                retArr.error = error;
+                res.json(retArr);
+            });
+        }
+    });
+};
