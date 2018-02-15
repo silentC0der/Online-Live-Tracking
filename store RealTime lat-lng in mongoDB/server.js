@@ -38,7 +38,7 @@ io.on('connection', function(socket){
             if (err) {
                 throw err;
                 } else {
-                    var collection  = db.collection('your collection name');
+                    let collection  = db.collection('your collection name');
                     collection.find({device_id:deviceId}).toArray(function(err,result){
                         if(result.length>0){
                             collection.update({ device_id : deviceId },{$push:{location:data1}},{ upsert: true }, function(err, numberAffected){});
